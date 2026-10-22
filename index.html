@@ -12,24 +12,11 @@
 </head>
 <body>
 <header class="appbar">
-  <button class="iconbtn burger" data-sheet="menu" aria-label="Open menu" title="Menu">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-  </button>
-  <h1>Practice Hub</h1>
-  <nav class="tabs" id="tabs">
-    <button data-go="courses" class="active">Courses</button>
-    <button data-go="practice">Practice</button>
-  </nav>
+  <h1><button class="brand" data-go="courses" title="Home">Practice Hub</button></h1>
   <div class="timer" id="timer" hidden role="timer" aria-label="Elapsed time"><i></i><span id="tval">00:00</span></div>
+  <button class="btn quit" id="quit" data-quit hidden aria-label="Quit test">Quit</button>
   <button class="theme" id="theme" data-theme-toggle aria-label="Switch light or dark theme"></button>
 </header>
-
-<aside class="drawer" id="menu" aria-label="Menu">
-  <div class="palhead"><b>Menu</b><button class="iconbtn" data-closesheet aria-label="Close menu">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-  <button class="mi active" data-go="courses">Courses</button>
-  <button class="mi" data-go="practice">Practice</button>
-</aside>
 <div id="scrim"></div>
 
 <main id="app"></main>
@@ -57,6 +44,15 @@
   <p id="mdesc" class="mdesc"></p>
   <div class="actions"><button class="btn text" data-scancel>Cancel</button><button class="btn filled" data-sstart>Start practice</button></div>
 </dialog>
+<dialog id="rdlg">
+  <form id="renForm" method="dialog">
+    <h2>Rename course</h2>
+    <label class="field"><span>Course name</span><input id="rname" required maxlength="80"></label>
+    <p class="err" id="rerr" role="alert"></p>
+    <div class="actions"><button type="button" class="btn text" id="rcancel">Cancel</button><button type="submit" class="btn filled">Save</button></div>
+  </form>
+</dialog>
+<div id="ctx" class="ctxmenu" role="menu" aria-label="Course options" hidden></div>
 <!-- confirmation popup (replaces browser confirm()) -->
 <dialog id="cdlg">
   <form method="dialog">
