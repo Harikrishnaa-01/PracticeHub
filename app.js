@@ -403,17 +403,26 @@ function parseCourse(name,A,B){
   if(!Array.isArray(cache.weeks)||typeof corr!=='object')throw Error('Could not find the questions file (needs a "weeks" list) and the answers file.');
   const questions=[];
   cache.weeks.forEach(w=>(w.questions||[]).forEach((q,i)=>{
-    let a=(corr[w.key]||{})[i];if(a==null)return;
-    const opts=q.options||[],assign=w.title||w.key;
-    if(/fill|blank|short.?answer|text.?input|numeric/i.test(String(q.type||''))||!opts.length){
+    let a=(corr[w.key]||{})[i];
+    if(a==null)a=q.answer??q.answers??q.correct??q.correct_answer;   // answer may live in the questions file
+    if(a==null)return;
+    if(a&&typeof a==='object'&&!Array.isArray(a))a=a.answer??a.answers??a.text??a.value;
+    if(a==null)return;
+    const typ=String(q.type||''),assign=w.title||w.key;
+    const opts=(q.options||[]).filter(o=>String(o??'').trim()!=='');
+    const toks=(Array.isArray(a)?a:String(a).split(/[,\s]+/)).map(s=>String(s).trim()).filter(Boolean);
+    // multiple choice only when every answer is a letter that points at a real option
+    const letters=opts.length>0&&toks.length>0&&toks.every(s=>/^[A-Za-z]$/.test(s)&&s.toUpperCase().charCodeAt(0)-65<opts.length);
+    const fillType=/fill|blank|cloze|gap|short|numeric|free.?text|text.?(entry|input)|written/i.test(typ);
+    if(fillType||!letters){
       const answers=(Array.isArray(a)?a:String(a).split('|')).map(s=>String(s).trim()).filter(Boolean);
       if(!answers.length)return;
       questions.push({assign,qno:i+1,question:q.question,options:[],images:q.images||[],answer:[],answers,fill:true,multi:false});
       return;
     }
-    a=(Array.isArray(a)?a:String(a).split(/[,\s]+/)).filter(Boolean).map(s=>s.toUpperCase().charCodeAt(0)-65);
-    questions.push({assign,qno:i+1,question:q.question,options:opts,images:q.images||[],answer:a,
-      multi:/multi/i.test(q.type||'')||a.length>1});
+    const ans=toks.map(s=>s.toUpperCase().charCodeAt(0)-65);
+    questions.push({assign,qno:i+1,question:q.question,options:opts,images:q.images||[],answer:ans,
+      multi:/multi/i.test(typ)||ans.length>1});
   }));
   if(!questions.length)throw Error('No questions matched between the two files.');
   return {id:'c'+Date.now(),name,weeks:cache.weeks.length,questions};
@@ -496,5 +505,7 @@ $('#addForm').addEventListener('submit',async e=>{
     render();
   }catch(x){err.textContent=x.message||'Invalid file.'}
 });
+const stale=courses.filter(c=>c.questions.some(q=>!q.fill&&!(q.options&&q.options.length)));
+if(stale.length)setTimeout(()=>toast(`"${stale[0].name}" was saved before typed answers were supported. Delete it and add it again to enable fill-ups.`,'err'),600);
 paintTheme();matchMedia('(prefers-color-scheme:dark)').addEventListener('change',paintTheme);
 render();
