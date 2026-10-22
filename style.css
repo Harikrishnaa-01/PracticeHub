@@ -738,3 +738,114 @@ dialog{background:var(--surface);color:var(--text);box-shadow:var(--shadow-raise
 .fstat li.good{border:1px solid var(--green-border)}.fstat li.good .role{color:var(--green-text)}
 .fstat li.badf{border:1px solid var(--red-border)}.fstat li.badf .role{color:var(--red-text)}
 .err{color:var(--red-text);font-weight:500}
+
+/* =====================================================================
+   v16: tooltips, header tools, Quit in the palette, wrong-answer viewer,
+   and a neumorphic polish pass (soft depth instead of hard outlines)
+   ===================================================================== */
+
+/* 1. practice options: click only, text can't be selected or dragged */
+.opt:not(.rv),.opt:not(.rv) *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
+.opt:not(.rv) ::selection,.opt:not(.rv)::selection{background:transparent}
+
+/* 2. Quit sits directly right of "Jump to question" */
+.pal .palhead{justify-content:flex-start;gap:10px}
+.pal .palhead .palx{margin-left:auto}
+.palhead .btn.quit{margin-left:6px;padding:6px 18px;min-height:34px;font-size:13px}
+
+/* 3. Flag / Clear icon buttons in the question header */
+.qhead{gap:12px}
+.qtools{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-left:auto;flex-wrap:wrap}
+.qtools .badge{margin:0}
+.tbtn{width:42px;height:42px;padding:0;border:0;border-radius:50%;display:inline-grid;place-items:center;flex:none;cursor:pointer;
+  background:var(--surface);color:var(--text-secondary);box-shadow:var(--shadow-raised-small);
+  transition:box-shadow .18s ease,transform .18s ease,color .18s ease}
+.tbtn svg{width:20px;height:20px}
+.tbtn:hover{box-shadow:var(--shadow-raised);transform:translateY(-1px)}
+.tbtn:active{box-shadow:var(--shadow-inset);transform:none}
+.tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.tbtn.flg:hover,.tbtn.flg.on{color:var(--amber-text)}
+.tbtn.flg.on,.tbtn.flg.on:hover{box-shadow:var(--shadow-inset);transform:none}
+.tbtn.flg.on svg{fill:currentColor}
+.tbtn.clr:hover{color:var(--red-text)}
+.tbtn[aria-disabled=true],.tbtn[aria-disabled=true]:hover{opacity:.5;color:var(--text-muted);box-shadow:var(--shadow-inset);transform:none;cursor:default}
+@media(max-width:560px){.tbtn{width:38px;height:38px}.qtools{gap:10px}}
+
+/* 4. themed tooltip */
+#tip{position:fixed;left:0;top:0;z-index:100;max-width:min(260px,calc(100vw - 16px));padding:8px 13px;border-radius:12px;
+  font:500 12.5px/1.35 Roboto,system-ui,sans-serif;color:var(--accent-text);background:var(--surface);
+  box-shadow:var(--shadow-raised-small);pointer-events:none;opacity:0;visibility:hidden;transform:translateY(4px);
+  transition:opacity .15s ease,transform .15s ease,visibility 0s .15s}
+#tip[data-pos=bottom]{transform:translateY(-4px)}
+#tip.show{opacity:1;visibility:visible;transform:none;transition:opacity .15s ease,transform .15s ease,visibility 0s}
+
+/* 7. wrong answers: list / one-at-a-time toggle */
+.wtool{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 16px}
+.wtool .sub{margin:0;flex:1 1 220px}
+.vtog{display:flex;gap:12px;padding:3px}
+.vtog .tbtn{width:44px;height:44px}
+.vtog .tbtn.on,.vtog .tbtn.on:hover{color:var(--accent-text);box-shadow:var(--shadow-inset);transform:none}
+.wcount{text-align:center;margin:0 0 12px;font-weight:700;font-size:14px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.wpv{display:grid;grid-template-columns:52px minmax(0,1fr) 52px;gap:18px;align-items:center}
+.wcard{min-width:0}
+.wcard .card{margin:0;animation:wfade .22s ease}
+@keyframes wfade{from{opacity:0;transform:translateY(6px)}}
+.cbtn{width:52px;height:52px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;cursor:pointer;
+  background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-raised);
+  transition:box-shadow .18s ease,transform .18s ease,opacity .18s ease}
+.cbtn svg{width:26px;height:26px}
+.cbtn:not(:disabled):hover{transform:translateY(-1px)}
+.cbtn:not(:disabled):active{box-shadow:var(--shadow-inset);transform:none}
+.cbtn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.cbtn:disabled{opacity:.45;box-shadow:var(--shadow-inset);cursor:default;color:var(--text-muted)}
+@media(max-width:700px){
+  .wpv{grid-template-columns:1fr 1fr;grid-template-areas:"card card" "prev next";row-gap:18px}
+  .wcard{grid-area:card}.wprev{grid-area:prev;justify-self:start}.wnext{grid-area:next;justify-self:end}
+}
+
+/* 8. polish: depth and tinted fills instead of hard outlines */
+.bar{height:10px;border-radius:999px}
+.bar i{border-radius:999px}
+.pal .chips{padding:10px}
+.wkh{border-bottom:1px solid var(--shadow-dark);box-shadow:0 1px 0 var(--shadow-light)}
+.ctxsep{height:2px;border-radius:2px;background:var(--shadow-dark);box-shadow:0 1px 0 var(--shadow-light)}
+.qimg{border:0;border-radius:14px;box-shadow:var(--shadow-raised-small)}
+
+/* badges: small engraved pills */
+.badge,.badge.wk{background:var(--surface);color:var(--accent-text);box-shadow:var(--inset-s);border-radius:999px;padding:4px 13px}
+.badge.multi,.badge.flagb{background:var(--amber-bg);color:var(--amber-text);box-shadow:var(--inset-s)}
+.st{border-radius:999px;padding:4px 12px;box-shadow:var(--inset-s)}
+.st.na{background:var(--surface);color:var(--text-muted)}
+.rtabs .cnt{box-shadow:var(--inset-s);background:var(--surface)}
+
+/* question-number chips: raised = open, pressed = answered, filled = current */
+.chip{border:0;border-radius:12px}
+.chip.done{background:var(--surface);color:var(--q-number-answered-text);font-weight:700;border:0;box-shadow:var(--shadow-inset)}
+.chip.skip{border:0;color:var(--amber-text);box-shadow:var(--shadow-raised-small)}
+.chip.m-ok{background:var(--green-bg);color:var(--green-text);border:0;box-shadow:var(--shadow-raised-small)}
+.chip.m-bad{background:var(--red-bg);color:var(--red-text);border:0;box-shadow:var(--shadow-raised-small)}
+.chip.m-na{background:var(--surface);color:var(--text-muted);border:0;box-shadow:var(--shadow-inset)}
+.chip.m-ok:hover,.chip.m-bad:hover{box-shadow:var(--shadow-raised)}
+.chip.m-ok:active,.chip.m-bad:active,.chip.skip:active{box-shadow:var(--shadow-inset)}
+.chip.cur,.chip.cur:hover{box-shadow:var(--shadow-raised-small)}
+
+/* review rows and answers: tinted fill + soft depth + inner colour bar */
+.opt.rv.right,.opt.rv.right:hover,.opt.rv.right:has(input:checked){border:0;background:var(--green-bg);color:var(--green-text);box-shadow:var(--shadow-raised-small),inset 4px 0 0 var(--green-text)}
+.opt.rv.wrong,.opt.rv.wrong:hover,.opt.rv.wrong:has(input:checked){border:0;background:var(--red-bg);color:var(--red-text);box-shadow:var(--shadow-raised-small),inset 4px 0 0 var(--red-text)}
+.frow.right{border:0;box-shadow:var(--shadow-raised-small),inset 4px 0 0 var(--green-text)}
+.frow.wrong{border:0;box-shadow:var(--shadow-raised-small),inset 4px 0 0 var(--red-text)}
+.kpi,.kpi.ok,.kpi.bad,.kpi.na,.kpi.fl{border:0;box-shadow:var(--shadow-raised-small)}
+.fstat li.good{border:0;box-shadow:var(--shadow-inset),inset 4px 0 0 var(--green-text)}
+.fstat li.badf{border:0;box-shadow:var(--shadow-inset),inset 4px 0 0 var(--red-text)}
+
+/* danger buttons: tinted fill, same raised/pressed depth, no outline ring */
+.btn.quit,.btn.filled.danger{box-shadow:var(--shadow-raised-small)}
+.btn.quit:not(:disabled):hover,.btn.filled.danger:not(:disabled):hover{box-shadow:var(--shadow-raised)}
+.btn.quit:not(:disabled):active,.btn.filled.danger:not(:disabled):active{box-shadow:var(--shadow-inset)}
+.ctxi.danger{box-shadow:var(--shadow-raised-small)}
+.ctxi.danger:hover,.ctxi.danger:focus-visible{box-shadow:var(--shadow-inset)}
+.ctxi.danger:active{box-shadow:var(--shadow-inset)}
+
+/* dialogs and toast */
+dialog{border-radius:28px}
+.snack{border-radius:16px}

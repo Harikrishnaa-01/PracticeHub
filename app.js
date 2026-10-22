@@ -7,6 +7,10 @@ const I={
   list:svg('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'),
   x:svg('<path d="M6 6l12 12M18 6 6 18"/>'),
   flag:svg('<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>'),
+  chevL:svg('<path d="M14.5 5.5 8 12l6.5 6.5"/>'),
+  chevR:svg('<path d="M9.5 5.5 16 12l-6.5 6.5"/>'),
+  rows:svg('<rect x="3.5" y="4.5" width="17" height="6" rx="1.8"/><rect x="3.5" y="13.5" width="17" height="6" rx="1.8"/>'),
+  single:svg('<rect x="5" y="3.5" width="14" height="17" rx="2.8"/><path d="M9 9h6M9 13h4"/>'),
   clock:svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/>')
 };
 let courses=[];try{courses=JSON.parse(localStorage.getItem('qp_courses')||'[]')}catch(e){}
@@ -17,7 +21,7 @@ const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==='d
 function paintTheme(){
   const d=isDark();
   $('#theme').textContent=d?'☀':'☾';
-  $('#theme').title=d?'Switch to light theme':'Switch to dark theme';
+  $('#theme').dataset.tip=d?'Switch to light theme':'Switch to dark theme';
 }
 function toggleTheme(){const t=isDark()?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('qp_theme',t)}catch(e){}paintTheme()}
 function save(){try{localStorage.setItem('qp_courses',JSON.stringify(courses));return true}catch(e){return false}}
@@ -41,6 +45,35 @@ function ask(title,msg,ok='OK',danger=false){
   });
 }
 
+/* ---------- themed tooltips (replace native title="" hovers) ---------- */
+const tipEl=document.createElement('div');tipEl.id='tip';tipEl.setAttribute('role','tooltip');document.body.appendChild(tipEl);
+let tipT=null,tipFor=null;
+function hideTip(){clearTimeout(tipT);tipT=null;tipFor=null;tipEl.classList.remove('show')}
+function placeTip(el){
+  if(!el.isConnected||!el.dataset.tip)return hideTip();
+  tipEl.textContent=el.dataset.tip;
+  const r=el.getBoundingClientRect(),w=tipEl.offsetWidth,h=tipEl.offsetHeight,g=10;
+  let top=r.top-h-g,pos='top';
+  if(top<8){top=r.bottom+g;pos='bottom'}
+  tipEl.style.left=Math.max(8,Math.min(r.left+r.width/2-w/2,innerWidth-w-8))+'px';
+  tipEl.style.top=top+'px';tipEl.dataset.pos=pos;tipEl.classList.add('show');
+}
+function refreshTip(el){if(tipFor===el&&tipEl.classList.contains('show'))placeTip(el)}
+function tipTarget(e){const n=e.target;const el=n&&n.nodeType===1?n:n&&n.parentElement;return el&&el.closest?el.closest('[data-tip]'):null}
+document.addEventListener('pointerover',e=>{
+  if(e.pointerType==='touch')return;
+  const el=tipTarget(e);if(el===tipFor)return;
+  hideTip();if(!el)return;
+  tipFor=el;tipT=setTimeout(()=>placeTip(el),320);
+});
+document.addEventListener('focusin',e=>{
+  const el=tipTarget(e);if(!el||!el.matches(':focus-visible'))return;
+  hideTip();tipFor=el;placeTip(el);
+});
+['pointerdown','keydown','focusout','wheel','resize','blur'].forEach(n=>addEventListener(n,hideTip,true));
+addEventListener('scroll',hideTip,true);
+document.documentElement.addEventListener('mouseleave',hideTip);
+
 /* ---------- drawers / sheets (mobile) ---------- */
 function openSheet(id){const e=document.getElementById(id);if(!e)return;e.classList.add('is-open');document.body.classList.add('sheet')}
 function closeSheets(){document.querySelectorAll('.is-open').forEach(e=>e.classList.remove('is-open'));document.body.classList.remove('sheet')}
@@ -49,7 +82,7 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 
 /* ---------- navigation ---------- */
 function go(v){
-  stopTimer();$('#timer').hidden=true;$('#quit').hidden=true;closeSheets();closeCtx();
+  stopTimer();$('#timer').hidden=true;closeSheets();closeCtx();
   view=v;test=null;if(v!=='preview')pv=null;
   render();scrollTo(0,0);
 }
@@ -59,6 +92,7 @@ async function nav(v){
   go(v);
 }
 function render(){
+  hideTip();
   app.classList.toggle('wide',test?!test.done:view==='preview');
   if(test)return test.done?renderResult():renderQ();
   if(view==='preview')renderPreview();else renderCourses();
@@ -162,7 +196,7 @@ function renderPreview(){
   const c=pv.c,gs=weekGroups(c);let g=gs.find(x=>x.label===pv.wk);
   if(!g){g=gs[0];pv.wk=g.label}
   app.innerHTML=`<div class="pvhead">
-    <button class="iconbtn home" data-home aria-label="Back to courses" title="Back to courses">${I.home}</button>
+    <button class="iconbtn home" data-home aria-label="Back to courses" data-tip="Back to courses">${I.home}</button>
     <div class="pvt"><h2>${esc(c.name)}</h2><p class="sub">${c.questions.length} questions · ${gs.length} weeks · answers shown</p></div>
     <button class="btn filled" data-start="${c.id}">Practice</button></div>
   <button class="fabctx" data-sheet="pvside">${I.list}<span>${esc(g.label)}</span><em>Weeks</em></button>
@@ -180,7 +214,7 @@ const dur=ms=>ms<60000?(ms/1000).toFixed(1)+'s':fmt(ms);
 let tick=null,pendingId=null;
 function stopTimer(){clearInterval(tick);tick=null;$('#timer').classList.remove('run')}
 function runTimer(){
-  $('#quit').hidden=false;const el=$('#timer');el.hidden=false;el.classList.add('run');
+  const el=$('#timer');el.hidden=false;el.classList.add('run');
   const upd=()=>{$('#tval').textContent=fmt(Date.now()-test.t0)};upd();
   tick=setInterval(upd,500);
 }
@@ -220,14 +254,14 @@ function start(id,mode){
   const {qs,groups}=build(c,mode);
   stopTimer();closeSheets();
   const now=Date.now();
-  test={c,qs,groups,mode,ans:qs.map(()=>[]),qt:qs.map(()=>0),i:0,done:false,seen:new Set(),flags:new Set(),t0:now,last:now,elapsed:0,rtab:'wrong',gmode:'all'};
+  test={c,qs,groups,mode,ans:qs.map(()=>[]),qt:qs.map(()=>0),i:0,done:false,seen:new Set(),flags:new Set(),t0:now,last:now,elapsed:0,rtab:'wrong',gmode:'all',wview:'list',wi:0};
   render();runTimer();scrollTo(0,0);
 }
 function lap(){if(!test||test.done)return;const n=Date.now();test.qt[test.i]+=n-test.last;test.last=n}
 function setQ(k){lap();test.i=k;render();scrollTo(0,0)}
 function finish(){
   lap();test.elapsed=Date.now()-test.t0;test.done=true;stopTimer();
-  $('#timer').hidden=true;$('#quit').hidden=true;
+  $('#timer').hidden=true;
 }
 
 /* ---------- test screen ---------- */
@@ -237,7 +271,7 @@ function paintPal(){
   const n=test.ans.filter(a=>a.length).length,e=$('#cnt'),f=$('#fcnt');
   if(e)e.textContent=n+' of '+test.qs.length+' answered';
   if(f)f.textContent=n+'/'+test.qs.length;
-  const cl=$('.clr');if(cl)cl.disabled=!test.ans[test.i].length;
+  const cl=$('.clr');if(cl)cl.setAttribute('aria-disabled',String(!test.ans[test.i].length));
 }
 const chipBtn=k=>`<button class="chip ${chipCls(k)}${test.flags.has(k)?' flag':''}" data-jump="${k}" aria-label="Question ${k+1}">${k+1}</button>`;
 function palette(){
@@ -268,15 +302,15 @@ function drawQ(){
     <span class="l">${L(k)}</span><span class="t">${esc(o)}</span></label>`).join('')}</div>`;
   app.innerHTML=`<button class="fabctx" data-sheet="pal">${I.list}<span>Questions</span><em id="fcnt"></em></button>
   <div class="testwrap"><div class="card main">
-  <div class="qhead"><span class="qnum">Question ${i+1} of ${n}</span>${wkBadge(i)}</div>
+  <div class="qhead"><span class="qnum">Question ${i+1} of ${n}</span>
+  <div class="qtools">${wkBadge(i)}<button class="tbtn flg ${test.flags.has(i)?'on':''}" data-flag data-tip="${test.flags.has(i)?'Remove flag':'Flag for review'}" aria-label="${test.flags.has(i)?'Remove flag':'Flag for review'}" aria-pressed="${test.flags.has(i)}">${I.flag}</button><button class="tbtn clr" data-clear data-tip="Clear ${q.fill?'answer':'selection'}" aria-label="Clear ${q.fill?'answer':'selection'}" aria-disabled="${ans[i].length?'false':'true'}">${I.x}</button></div></div>
   <div class="bar"><i style="width:${(i+1)/n*100}%"></i></div>
   ${tag?`<div class="qpt">${tag}</div>`:''}
   <div class="qtext">${esc(q.question)}</div>${imgs(q)}
   ${body}
-  <div class="clrrow"><button class="btn text flg ${test.flags.has(i)?'on':''}" data-flag aria-pressed="${test.flags.has(i)}">${I.flag}<span>${test.flags.has(i)?'Flagged for review':'Flag for review'}</span></button><button class="btn text clr" data-clear ${ans[i].length?'':'disabled'}>${I.x}<span>Clear ${q.fill?'answer':'selection'}</span></button></div>
   <div class="nav"><button class="btn tonal" data-prev ${i?'':'disabled'}>Previous</button>
   ${i<n-1?`<button class="btn filled" data-next>Next</button>`:`<button class="btn filled" data-submit>Submit test</button>`}</div></div>
-  <aside class="card pal" id="pal"><div class="palhead"><b>Jump to question</b><button class="iconbtn palx" data-closesheet aria-label="Close">${I.x}</button></div>
+  <aside class="card pal" id="pal"><div class="palhead"><b>Jump to question</b><button class="btn quit" data-quit aria-label="Quit test">Quit</button><button class="iconbtn palx" data-closesheet aria-label="Close">${I.x}</button></div>
   <div class="sub" id="cnt" style="margin:2px 0 10px"></div>
   ${palette()}
   <div class="key"><span><i class="k-cur"></i>Current</span><span><i class="k-done"></i>Answered</span><span><i class="k-skip"></i>Skipped</span><span><i></i>Not visited</span><span><i class="k-flag"></i>Flagged</span></div>
@@ -291,7 +325,8 @@ function drawQ(){
    compared by value ("5", "5.0" and "5,000" = "5000"). Several accepted answers can be given
    as a list or separated by "|" in the answers file. */
 const norm=s=>String(s).normalize('NFKC').toLowerCase().replace(/[\u2018\u2019`\u00b4]/g,"'").replace(/[\u201c\u201d]/g,'"')
-  .replace(/\s+/g,' ').trim().replace(/^["']+/,'').replace(/["'.,;:!?]+$/,'').trim();
+  .replace(/[\u00ad\u058a\u05be\u2010-\u2015\u2212\u2e3a\u2e3b\ufe58\ufe63\uff0d]/g,'-')
+  .replace(/(\d)\s*-\s*(?=\d)/g,'$1-').replace(/\s+/g,' ').trim().replace(/^["']+/,'').replace(/["'.,;:!?]+$/,'').trim();
 const NUM=/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/;
 function same(exp,got){
   const a=norm(exp),b=norm(got);if(!a||!b)return false;
@@ -323,9 +358,22 @@ function reviewCard(k){
   return `<article class="card rcard">${top}<div class="qtext">${esc(q.question)}</div>${imgs(q)}${body}</article>`;
 }
 function wrongHTML(){
-  const list=test.qs.map((_,k)=>k).filter(k=>test.st[k]!=='ok');
-  return list.length?`<p class="sub">${list.length} question${list.length===1?'':'s'} to revisit. Options appear in the order you saw them.</p>`+list.map(reviewCard).join('')
-    :`<div class="card empty"><p>Perfect score. Nothing was answered wrong.</p></div>`;
+  const list=test.qs.map((_,k)=>k).filter(k=>test.st[k]!=='ok'),n=list.length;
+  if(!n)return `<div class="card empty"><p>Perfect score. Nothing was answered wrong.</p></div>`;
+  const one=test.wview==='card';test.wi=Math.max(0,Math.min(test.wi||0,n-1));
+  const head=`<div class="wtool"><p class="sub">${n} question${n===1?'':'s'} to revisit. Options appear in the order you saw them.</p>
+    <div class="vtog" role="group" aria-label="View mode">
+      <button class="tbtn${one?'':' on'}" data-wview="list" data-tip="List view" aria-label="List view" aria-pressed="${!one}">${I.rows}</button>
+      <button class="tbtn${one?' on':''}" data-wview="card" data-tip="One question at a time" aria-label="One question at a time" aria-pressed="${one}">${I.single}</button></div></div>`;
+  if(!one)return head+list.map(reviewCard).join('');
+  return head+`<div class="wcount">Question ${test.wi+1} of ${n} to revisit</div>
+    <div class="wpv"><button class="cbtn wprev" data-wnav="-1" data-tip="Previous question" aria-label="Previous question" ${test.wi?'':'disabled'}>${I.chevL}</button>
+    <div class="wcard">${reviewCard(list[test.wi])}</div>
+    <button class="cbtn wnext" data-wnav="1" data-tip="Next question" aria-label="Next question" ${test.wi<n-1?'':'disabled'}>${I.chevR}</button></div>`;
+}
+function stepWrong(d){
+  const n=test.nBad,k=Math.max(0,Math.min(n-1,test.wi+d));
+  if(k===test.wi)return;test.wi=k;paintPanel();
 }
 function flaggedHTML(){
   const list=[...test.flags].sort((a,b)=>a-b);
@@ -334,7 +382,7 @@ function flaggedHTML(){
 }
 function gridHTML(){
   const {qs,st,qt}=test,wk=test.gmode==='week';
-  const chip=k=>`<button class="chip m-${st[k]}${test.flags.has(k)?' flag':''}" data-rvq="${k}" aria-label="Question ${k+1}: ${STL[st[k]].toLowerCase()}${test.flags.has(k)?', flagged':''}" title="Q${k+1} · ${STL[st[k]]}${test.flags.has(k)?' · Flagged':''} · ${dur(qt[k])}">${k+1}</button>`;
+  const chip=k=>`<button class="chip m-${st[k]}${test.flags.has(k)?' flag':''}" data-rvq="${k}" aria-label="Question ${k+1}: ${STL[st[k]].toLowerCase()}${test.flags.has(k)?', flagged':''}" data-tip="Q${k+1} · ${STL[st[k]]}${test.flags.has(k)?' · Flagged':''} · ${dur(qt[k])}">${k+1}</button>`;
   let inner;
   if(!wk)inner=`<div class="cmap">${qs.map((_,k)=>chip(k)).join('')}</div>`;
   else{
@@ -351,7 +399,7 @@ function paintPanel(){
 }
 function renderQPreview(k){
   const back=`<button class="btn tonal" data-back>← Back to results</button>`;
-  app.innerHTML=`<div class="res"><div class="pvhead">${back}<div class="pvt"><h2>Question ${k+1}</h2><p class="sub">${esc(test.c.name)}</p></div></div>${reviewCard(k)}<div class="actions">${back}</div></div>`;
+  app.innerHTML=`<div class="res"><div class="pvhead">${back}<div class="pvt"><h2>Question ${k+1}</h2><p class="sub">${esc(test.c.name)}</p></div></div>${reviewCard(k)}</div>`;
   scrollTo(0,0);
 }
 function renderResult(){
@@ -389,7 +437,7 @@ function renderResult(){
     <div class="kpis"><div class="kpi ok"><b>${c.ok}</b><small>Correct</small></div><div class="kpi bad"><b>${c.bad}</b><small>Wrong</small></div><div class="kpi na"><b>${c.na}</b><small>Not answered</small></div><div class="kpi fl"><b>${test.flags.size}</b><small>Flagged</small></div></div>
   </section>
   ${rows.length>1?`<section class="card"><h3>By week</h3>${rows.map(([w,o])=>`<div class="wrow"><span>${esc(w)}</span>
-    <div class="stack" title="${o.ok} correct, ${o.bad} wrong, ${o.na} unanswered"><i class="d-ok" style="width:${o.ok/o.n*100}%"></i><i class="d-bad" style="width:${o.bad/o.n*100}%"></i><i class="d-na" style="width:${o.na/o.n*100}%"></i></div>
+    <div class="stack" data-tip="${o.ok} correct, ${o.bad} wrong, ${o.na} unanswered"><i class="d-ok" style="width:${o.ok/o.n*100}%"></i><i class="d-bad" style="width:${o.bad/o.n*100}%"></i><i class="d-na" style="width:${o.na/o.n*100}%"></i></div>
     <span>${o.ok}/${o.n}</span></div>`).join('')}</section>`:''}
   <div class="rtabs" role="tablist"><button role="tab" class="${test.rtab==='wrong'?'on':''}" data-rtab="wrong">Wrong answers <span class="cnt">${test.nBad}</span></button><button role="tab" class="${test.rtab==='flagged'?'on':''}" data-rtab="flagged">Flagged <span class="cnt">${test.flags.size}</span></button><button role="tab" class="${test.rtab==='grid'?'on':''}" data-rtab="grid">Answer grid</button></div>
   <div id="rpanel"></div>
@@ -487,9 +535,9 @@ document.addEventListener('click',e=>{
   else if('prev' in d)setQ(test.i-1);
   else if('flag' in d){
     const s=test.flags,k=test.i;s.has(k)?s.delete(k):s.add(k);const on=s.has(k);
-    t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);t.querySelector('span').textContent=on?'Flagged for review':'Flag for review';paintPal();
+    t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);const tx=on?'Remove flag':'Flag for review';t.dataset.tip=tx;t.setAttribute('aria-label',tx);paintPal();
   }
-  else if('clear' in d){test.ans[test.i]=[];renderQ()}
+  else if('clear' in d){if(t.getAttribute('aria-disabled')==='true')return;test.ans[test.i]=[];renderQ()}
   else if(d.jump!==undefined){closeSheets();setQ(+d.jump)}
   else if('quit' in d)nav('courses');
   else if('submit' in d){
@@ -502,6 +550,8 @@ document.addEventListener('click',e=>{
   }
   else if(d.rtab){test.rtab=d.rtab;paintPanel()}
   else if(d.gmode){test.gmode=d.gmode;paintPanel()}
+  else if(d.wview){test.wview=d.wview;paintPanel()}
+  else if(d.wnav){stepWrong(+d.wnav);const b=document.querySelector(`[data-wnav="${d.wnav}"]`);if(b&&!b.disabled)b.focus({preventScroll:true})}
   else if(d.rvq!==undefined){test.scrollY=scrollY;renderQPreview(+d.rvq)}
   else if('back' in d){renderResult();scrollTo(0,test.scrollY||0)}
 });
@@ -517,6 +567,16 @@ app.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&e.target.id==='fill'){e.preventDefault();const b=app.querySelector('[data-next]');if(b)b.click()}
 });
 document.addEventListener('change',e=>{if(e.target.name==='mode')paintMode()});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+  if(!test||!test.done||test.rtab!=='wrong'||test.wview!=='card'||!document.querySelector('.wpv'))return;
+  if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||!ctx.hidden||document.querySelector('dialog[open]'))return;
+  if(e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]'))return;
+  e.preventDefault();stepWrong(e.key==='ArrowRight'?1:-1);
+});
+/* practice options respond to clicks only: no selecting, dragging or copying their text */
+const inPracticeOpt=e=>{const n=e.target,el=n&&n.nodeType===1?n:n&&n.parentElement;return !!(el&&el.closest&&el.closest('.opt:not(.rv)'))};
+['selectstart','dragstart','copy','cut'].forEach(n=>app.addEventListener(n,e=>{if(inPracticeOpt(e))e.preventDefault()}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheets()});
 $('#scrim').addEventListener('click',closeSheets);
 matchMedia('(min-width:861px)').addEventListener('change',closeSheets);
