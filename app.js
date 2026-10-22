@@ -401,13 +401,12 @@ function renderResult(){
 function parseCourse(name,A,B){
   const cache=A.weeks?A:B, corr=A.weeks?B:A;
   if(!Array.isArray(cache.weeks)||typeof corr!=='object')throw Error('Could not find the questions file (needs a "weeks" list) and the answers file.');
-  const questions=[];
+  const questions=[];let skipped=0;
   cache.weeks.forEach(w=>(w.questions||[]).forEach((q,i)=>{
     let a=(corr[w.key]||{})[i];
     if(a==null)a=q.answer??q.answers??q.correct??q.correct_answer;   // answer may live in the questions file
-    if(a==null)return;
     if(a&&typeof a==='object'&&!Array.isArray(a))a=a.answer??a.answers??a.text??a.value;
-    if(a==null)return;
+    if(a==null){skipped++;return}
     const typ=String(q.type||''),assign=w.title||w.key;
     const opts=(q.options||[]).filter(o=>String(o??'').trim()!=='');
     const toks=(Array.isArray(a)?a:String(a).split(/[,\s]+/)).map(s=>String(s).trim()).filter(Boolean);
@@ -416,7 +415,7 @@ function parseCourse(name,A,B){
     const fillType=/fill|blank|cloze|gap|short|numeric|free.?text|text.?(entry|input)|written/i.test(typ);
     if(fillType||!letters){
       const answers=(Array.isArray(a)?a:String(a).split('|')).map(s=>String(s).trim()).filter(Boolean);
-      if(!answers.length)return;
+      if(!answers.length){skipped++;return}
       questions.push({assign,qno:i+1,question:q.question,options:[],images:q.images||[],answer:[],answers,fill:true,multi:false});
       return;
     }
@@ -425,9 +424,44 @@ function parseCourse(name,A,B){
       multi:/multi/i.test(typ)||ans.length>1});
   }));
   if(!questions.length)throw Error('No questions matched between the two files.');
-  return {id:'c'+Date.now(),name,weeks:cache.weeks.length,questions};
+  return {id:'c'+Date.now(),name,weeks:cache.weeks.length,questions,skipped};
 }
-const readJ=f=>f.text().then(JSON.parse).catch(()=>{throw Error(`"${f.name}" is not valid JSON.`)});
+/* Reads the two uploaded files together, works out which is which and checks both.
+   Every problem is reported as a plain-language Error. */
+const isJsonFile=f=>/\.json$/i.test(f.name)||/json/i.test(f.type||'');
+const isObj=o=>o&&typeof o==='object'&&!Array.isArray(o);
+async function loadPair(list){
+  const files=[...list];
+  if(!files.length)throw Error('Select both JSON files (questions and answers) together.');
+  if(files.length!==2)throw Error(`Select exactly two JSON files: one questions file and one answers file. You selected ${files.length}.`);
+  const bad=files.find(f=>!isJsonFile(f));
+  if(bad)throw Error(`"${bad.name}" is not a .json file.`);
+  const data=[];
+  for(const f of files){
+    let t;try{t=await f.text()}catch(e){throw Error(`Could not read "${f.name}".`)}
+    if(!t.trim())throw Error(`"${f.name}" is empty.`);
+    try{data.push(JSON.parse(t))}catch(e){throw Error(`"${f.name}" is not valid JSON. Check for a missing comma, bracket or quote.`)}
+  }
+  const isQ=o=>isObj(o)&&Array.isArray(o.weeks);
+  const [q0,q1]=data.map(isQ);
+  if(q0&&q1)throw Error('Both files look like questions files (they contain a "weeks" list). One of them must be the answers file.');
+  if(!q0&&!q1)throw Error('Neither file looks like a questions file. The questions file needs a "weeks" list.');
+  const qi=q0?0:1,ai=1-qi,Q=data[qi],A=data[ai],qn=files[qi].name,an=files[ai].name;
+  if(!isObj(A))throw Error(`"${an}" is not a valid answers file. It should be an object with one entry per week.`);
+  if(!Q.weeks.length)throw Error(`"${qn}" has an empty "weeks" list.`);
+  Q.weeks.forEach((w,n)=>{
+    if(!isObj(w))throw Error(`Week ${n+1} in "${qn}" is not an object.`);
+    if(w.key==null||w.key==='')throw Error(`Week ${n+1} in "${qn}" is missing its "key".`);
+    if(!Array.isArray(w.questions)||!w.questions.length)throw Error(`Week "${w.key}" in "${qn}" has no "questions" list.`);
+    w.questions.forEach((q,i)=>{if(!isObj(q)||!String(q.question??'').trim())throw Error(`Question ${i+1} of week "${w.key}" in "${qn}" has no "question" text.`)});
+  });
+  if(!Q.weeks.some(w=>A[w.key]!=null))
+    throw Error(`"${an}" has no answers for the weeks in "${qn}". Expected keys such as ${Q.weeks.slice(0,3).map(w=>'"'+w.key+'"').join(', ')}.`);
+  return {Q,A,qn,an};
+}
+function resetAdd(){
+  $('#addForm').reset();$('#err').textContent='';$('#fstat').innerHTML='';$('.file').classList.remove('ok');
+}
 
 /* ---------- events ---------- */
 document.addEventListener('click',e=>{
@@ -444,7 +478,7 @@ document.addEventListener('click',e=>{
   else if('home' in d)nav('courses');
   else if(d.open)openPreview(d.open);
   else if(d.wk)selWeek(d.wk);
-  else if('add' in d){$('#addForm').reset();$('#err').textContent='';dlg.showModal()}
+  else if('add' in d){resetAdd();dlg.showModal()}
   else if(d.start)openStart(d.start);
   else if(d.again)openStart(d.again);
   else if('sstart' in d){const m=document.querySelector('input[name=mode]:checked').value;$('#sdlg').close();start(pendingId,m)}
@@ -495,15 +529,30 @@ $('#renForm').addEventListener('submit',e=>{
   if(c){const old=c.name;c.name=name;if(!save()){c.name=old;$('#rerr').textContent='Could not update browser storage.';return}toast('Course renamed','ok')}
   $('#rdlg').close();render();
 });
+$('#files').addEventListener('change',async()=>{
+  const fs=$('#fstat'),err=$('#err'),box=$('.file'),list=[...$('#files').files];
+  box.classList.remove('ok');err.textContent='';
+  fs.innerHTML=list.map(f=>`<li><span class="fn">${esc(f.name)}</span><span class="role">checking…</span></li>`).join('');
+  try{
+    const r=await loadPair(list);
+    fs.innerHTML=[[r.qn,'Questions ✓'],[r.an,'Answers ✓']].map(([n,t])=>`<li class="good"><span class="fn">${esc(n)}</span><span class="role">${t}</span></li>`).join('');
+    box.classList.add('ok');
+  }catch(x){
+    fs.innerHTML=list.map(f=>`<li class="badf"><span class="fn">${esc(f.name)}</span><span class="role">✕</span></li>`).join('');
+    err.textContent=x.message;
+  }
+});
 $('#addForm').addEventListener('submit',async e=>{
   e.preventDefault();const err=$('#err');err.textContent='';
   try{
-    const c=parseCourse($('#cname').value.trim(),await readJ($('#f1').files[0]),await readJ($('#f2').files[0]));
+    const {Q,A}=await loadPair($('#files').files);
+    const c=parseCourse($('#cname').value.trim(),Q,A),skipped=c.skipped;delete c.skipped;
     courses.push(c);
     if(!save()){courses.pop();throw Error('Browser storage is full. Delete a course and try again.')}
-    dlg.close();toast(`Added "${c.name}" with ${c.questions.length} questions`,'ok');
+    dlg.close();
+    toast(`Added "${c.name}" with ${c.questions.length} questions`+(skipped?` (${skipped} skipped: no answer found)`:''),skipped?'info':'ok');
     render();
-  }catch(x){err.textContent=x.message||'Invalid file.'}
+  }catch(x){err.textContent=x.message||'Invalid files.'}
 });
 const stale=courses.filter(c=>c.questions.some(q=>!q.fill&&!(q.options&&q.options.length)));
 if(stale.length)setTimeout(()=>toast(`"${stale[0].name}" was saved before typed answers were supported. Delete it and add it again to enable fill-ups.`,'err'),600);

@@ -25,8 +25,10 @@
   <form id="addForm" method="dialog">
     <h2>Add course</h2>
     <label class="field"><span>Course name</span><input id="cname" required maxlength="80" placeholder="e.g. Cyber Physical Systems"></label>
-    <label class="file"><span>Questions file (cache JSON)</span><input id="f1" type="file" accept=".json,application/json" required></label>
-    <label class="file"><span>Answers file (correct JSON)</span><input id="f2" type="file" accept=".json,application/json" required></label>
+    <label class="file"><span>Questions and answers files</span>
+      <input id="files" type="file" accept=".json,application/json" multiple required>
+      <small class="fhint">Select both JSON files together (Ctrl/Cmd-click, or drag both in). Exactly two files; the order doesn't matter.</small></label>
+    <ul class="fstat" id="fstat" aria-live="polite"></ul>
     <p class="err" id="err" role="alert"></p>
     <div class="actions">
       <button type="button" class="btn text" id="cancel">Cancel</button>

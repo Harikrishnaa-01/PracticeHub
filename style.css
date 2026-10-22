@@ -724,3 +724,17 @@ dialog{background:var(--surface);color:var(--text);box-shadow:var(--shadow-raise
 .btn.quit:not(:disabled):active{box-shadow:var(--shadow-inset),inset 0 0 0 1px var(--red-border)}
 .btn.quit[hidden]{display:none}
 @media(max-width:560px){.btn.quit{padding:6px 12px;min-height:34px;margin-left:4px}}
+
+
+/* v15: single two-file upload */
+.fhint{display:block;margin-top:10px;font-size:12.5px;line-height:1.4;color:var(--text-secondary)}
+.file:has(input:valid):not(.ok){box-shadow:var(--shadow-inset)}
+.file.ok{box-shadow:var(--shadow-inset),inset 4px 0 0 var(--green-text)}
+.fstat{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:8px}
+.fstat:empty{display:none}
+.fstat li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:var(--surface);box-shadow:var(--shadow-inset);font-size:14px}
+.fstat .fn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fstat .role{flex:none;font-weight:700;font-size:12px;color:var(--text-secondary)}
+.fstat li.good{border:1px solid var(--green-border)}.fstat li.good .role{color:var(--green-text)}
+.fstat li.badf{border:1px solid var(--red-border)}.fstat li.badf .role{color:var(--red-text)}
+.err{color:var(--red-text);font-weight:500}
